@@ -1,94 +1,81 @@
-import re, csv
-from time import sleep, time
-from random import uniform, randint
+from time import sleep
+from random import uniform
 from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.wait import WebDriverWait 
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import NoSuchElementException    
+from selenium.common.exceptions import NoSuchElementException
+from clarifai.client import ClarifaiApi
+from image_aux import ImageAux
 
-def write_stat(loops, time):
-	with open('stat.csv', 'a', newline='') as csvfile:
-		spamwriter = csv.writer(csvfile, delimiter=',',quotechar='"', quoting=csv.QUOTE_MINIMAL)
-		spamwriter.writerow([loops, time])  	 
-	
+
 def check_exists_by_xpath(xpath):
     try:
         driver.find_element_by_xpath(xpath)
     except NoSuchElementException:
         return False
-    return True 
-	
-def wait_between(a,b):
-	rand=uniform(a, b) 
-	sleep(rand)
+    return True
 
-def get_captcha_frames(source): 	 
-	r = re.compile('(?<=\<iframe).*?\sname="(I[\d_]+)"')
-	return r.findall(source) 
-	
-# main procedure to randomly check and submit picture solution	
-def solve_images(driver):
-	wait_between(0.2, 0.5)	
-	WebDriverWait(driver, 10).until(
-        EC.presence_of_element_located((By.ID ,"rc-imageselect-target"))) 		
-	rand1 =	randint(1,9)
-	# ******** check if there are clicked tiles ********
-	if check_exists_by_xpath('//div[@id="rc-imageselect-target"]/div[@class="rc-imageselect-tileselected"]'): 
-	    # there are checked tiles 
-		rand2=''
-	else:            
-	    # there are NO checked tiles 		
-		rand2 = randint(1,9) 
-		while rand2==rand1: # we get rand2 different from rand1
-			rand2 = randint(1,9)		
-	wait_between(0.3, 0.8)		 
-	# ********* clicking on a tile(s) ********** 
-	tile1 = WebDriverWait(driver, 10).until(
-        EC.element_to_be_clickable((By.XPATH ,   '//div[@id="rc-imageselect-target"]/div[{}]'.format(rand1)) )  
-        )
-	tile1.click()	
-	# second tile click
-	if (rand2):  
-		driver.find_element_by_xpath('//div[@id="rc-imageselect-target"]/div[{}]'.format(rand2)).click()
- 	# ********** clicking submit buttion **********
-	driver.find_element_by_id("recaptcha-verify-button").click()
-	
-start = time()	 
-url='http://blogs.ne10.uol.com.br/jamildo/2016/01/25/enquete-pedro-eurico-deve-continuar-a-ocupar-o-cargo-de-secretario-de-justica/'
-driver = webdriver.Firefox()
-driver.get(url)
-mainWin = driver.current_window_handle
-frameName1 = get_captcha_frames(driver.page_source)[0]
-# *****  move to the main captcha frame *****
-driver.switch_to_frame(frameName1)
-wait_between(0.2, 0.5) 
-# **** locate and click checkBox on main captcha frame ******
-CheckBox = WebDriverWait(driver, 10).until(
-        EC.presence_of_element_located((By.ID ,"recaptcha-anchor"))) 
-CheckBox.click() 
-# *********  back to main window  *************
-driver.switch_to.window(mainWin)    
-wait_between(1.0, 1.5) 
-# ********** fetch second iframe name **********
-frameName2 = get_captcha_frames(driver.page_source)[-1] 
 
-for i in range(1,100): 
-	# check if checkbox is checked (reCaptcha solved)	
-	WebDriverWait(driver, 10).until(
-        EC.frame_to_be_available_and_switch_to_it((By.ID , frameName1)))   
-	if check_exists_by_xpath('//span[@aria-checked="true"]'):
-		timespan=round(time()-start) 
-		print ('\n\r reCaptcha is solved at loop {0} for {1} seconds !'.format(i, timespan))
-		import winsound
-		winsound.Beep(400,1500)
-		write_stat(i, timespan) # saving results into stat file
-		break 		
-	# move to the 2nd frame thru main window	
-	driver.switch_to.window(mainWin)   
-	WebDriverWait(driver, 10).until(
-        EC.frame_to_be_available_and_switch_to_it((By.ID , frameName2)))  	
-	# main procedure - picture puzzle check
-	solve_images(driver)	
-	# back to the main window
-	driver.switch_to.window(mainWin)  	
+def wait_between(a, b):
+    rand = uniform(a, b)
+    sleep(rand)
+
+url = "http://blogs.ne10.uol.com.br/jamildo/2016/01/25/enquete-pedro-eurico-deve-continuar-a-" \
+      "ocupar-o-cargo-de-secretario-de-justica/"
+
+
+while True:
+    driver = webdriver.Firefox()
+    driver.get(url)
+
+    driver.switch_to.default_content()
+    driver.switch_to.frame(driver.find_element_by_xpath("//iframe[contains(@src,'enquete')]"))
+    driver.switch_to.frame(driver.find_element_by_xpath("//iframe[contains(@title,'widget')]"))
+
+    wait_between(0.2, 0.5)
+
+    checkbox = driver.find_element_by_xpath("//*[@id='recaptcha-anchor']")
+    checkbox.click()
+
+    wait_between(1.0, 1.5)
+
+    if check_exists_by_xpath('//span[@aria-checked="true"]'):
+        print('\n\r reCaptcha is solved!')
+    else:
+        driver.switch_to.default_content()
+        driver.switch_to.frame(driver.find_element_by_xpath("//iframe[contains(@src,'enquete')]"))
+        driver.switch_to.frame(driver.find_element_by_xpath("//iframe[contains(@title,'challenge')]"))
+
+        text_tag = driver.find_element_by_xpath("//div[contains(@class,'rc-imageselect-desc-no-canonical')]")
+        sentence_tag = text_tag.find_element_by_tag_name("strong")
+        sentence_text = sentence_tag.text
+        sentence = sentence_text.split()
+
+        image_tag = driver.find_element_by_xpath("//img[contains(@class,'rc-image')]")
+        image_url = image_tag.get_attribute('src')
+
+        image_aux = ImageAux(image_url)
+        image_aux.generate_images()
+
+        api = ClarifaiApi('TXB6MB-evkMHppAyFrgw_qas3-_YKPGvels7bTP1', 'F32nfZQ3QEKnPi6vdKUj8k_bViz29L6thxNuv9P2')
+
+        tiles = driver.find_element_by_id("rc-imageselect-target")
+        table = tiles.find_element_by_tag_name("table")
+        tds = table.find_elements_by_tag_name("td")
+
+        for idx, td in enumerate(tds):
+            response = api.tag_images(image_aux.get_image(idx+1))
+            results = response['results'][0]['result']['tag']['classes']
+            for word in sentence:
+                if word in results:
+                    td.find_element_by_class_name("rc-image-tile-target").click()
+                    break
+
+        driver.find_element_by_id("recaptcha-verify-button").click()
+
+        wait_between(1.0, 1.5)
+
+        if check_exists_by_xpath('//span[@aria-checked="true"]'):
+            print('\n\r reCaptcha is solved! :) ')
+        else:
+            print('\n\r Maybe in next time :/ ')
+
+        driver.close()
