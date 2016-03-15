@@ -1,0 +1,54 @@
+{
+  "data": {
+    "target_url": "http://blogs.ne10.uol.com.br/jamildo/2016/01/25/enquete-pedro-eurico-deve-continuar-a-ocupar-o-cargo-de-secretario-de-justica/",
+    "clarifai_settings": {
+      "language": "en",
+      "applications":[
+        {
+          "id":"TXB6MB-evkMHppAyFrgw_qas3-_YKPGvels7bTP1",
+          "secret":"F32nfZQ3QEKnPi6vdKUj8k_bViz29L6thxNuv9P2",
+          "email":"rodrigo.hime@gmal.com"
+        },
+        {"id":"", "Secret":""},
+        {"id":"", "Secret":""},
+        {"id":"", "Secret":""},
+        {"id":"", "Secret":""},
+        {"id":"", "Secret":""},
+        {"id":"", "Secret":""},
+        {"id":"", "Secret":""},
+        {"id":"", "Secret":""},
+        {"id":"", "Secret":""},
+        {"id":"", "Secret":""},
+        {"id":"", "Secret":""},
+        {"id":"", "Secret":""},
+        {"id":"", "Secret":""},
+        {"id":"", "Secret":""},
+        {"id":"", "Secret":""},
+        {"id":"", "Secret":""},
+        {"id":"", "Secret":""},
+        {"id":"", "Secret":""},
+        {"id":"", "Secret":""},
+        {"id":"", "Secret":""},
+        {"id":"", "Secret":""},
+        {"id":"", "Secret":""},
+        {"id":"", "Secret":""},
+        {"id":"", "Secret":""},
+        {"id":"", "Secret":""},
+        {"id":"", "Secret":""},
+        {"id":"", "Secret":""},
+        {"id":"", "Secret":""},
+        {"id":"", "Secret":""},
+        {"id":"", "Secret":""},
+        {"id":"", "Secret":""},
+        {"id":"", "Secret":""},
+        {"id":"", "Secret":""},
+        {"id":"", "Secret":""},
+        {"id":"", "Secret":""},
+        {"id":"", "Secret":""},
+        {"id":"", "Secret":""},
+        {"id":"", "Secret":""},
+        {"id":"", "Secret":""}
+      ]
+    }
+  }
+}

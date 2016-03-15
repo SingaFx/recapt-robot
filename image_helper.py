@@ -6,7 +6,7 @@ import io
 import cStringIO
 
 
-class ImageAux:
+class ImageHelper:
 
     def __init__(self, image_url):
         response = urllib.urlopen(image_url)
@@ -61,5 +61,5 @@ class ImageAux:
         self.crop_image(9, "temp/image9")
 
     def get_image(self, image_number):
-        return open('temp/image%s.%s' % (image_number, self.img_ext)), 'image%s.%s' % (image_number, self.img_ext)
+        return open('temp/image%s.%s' % (image_number, self.img_ext),'rb'), 'image%s.%s' % (image_number, self.img_ext)
 

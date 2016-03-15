@@ -2,32 +2,70 @@ from time import sleep
 from random import uniform
 from selenium import webdriver
 from selenium.common.exceptions import NoSuchElementException
+
 from clarifai.client import ClarifaiApi
-from image_aux import ImageAux
+from image_helper import ImageHelper
+import inflect
+import json
 
 
-def check_exists_by_xpath(xpath):
+def check_exists_by_name(web_driver, classname):
     try:
-        driver.find_element_by_xpath(xpath)
+        web_driver.find_element_by_class_name(classname)
     except NoSuchElementException:
         return False
     return True
+
+
+def check_if_is_solved(web_driver):
+
+    web_driver.switch_to.default_content()
+    web_driver.switch_to.frame(driver.find_element_by_xpath("//iframe[contains(@src,'enquete')]"))
+    driver.switch_to.frame(driver.find_element_by_xpath("//iframe[contains(@title,'widget')]"))
+
+    try:
+        check_box = driver.find_element_by_id("recaptcha-anchor")
+        has_checked = check_box.get_attribute('aria-checked')
+        if has_checked == 'true':
+            return True
+        else:
+            return False
+    except NoSuchElementException:
+        return False
 
 
 def wait_between(a, b):
     rand = uniform(a, b)
     sleep(rand)
 
-url = "http://blogs.ne10.uol.com.br/jamildo/2016/01/25/enquete-pedro-eurico-deve-continuar-a-" \
-      "ocupar-o-cargo-de-secretario-de-justica/"
 
+def vote(web_driver):
+    web_driver.switch_to.default_content()
+    web_driver.switch_to.frame(driver.find_element_by_xpath("//iframe[contains(@src,'enquete')]"))
+    btn_vote = driver.find_element_by_id("votar")
+    btn_vote.click()
+
+
+p = inflect.engine()
+config = json.load(open('config.json'))['data']
+
+url = config['target_url']
+clarifai_client_language = config['clarifai_settings']['language']
+clarifai_client_settings = config['clarifai_settings']['applications'][0]
 
 while True:
-    driver = webdriver.Firefox()
+
+    profile = webdriver.FirefoxProfile()
+    profile.set_preference("intl.accept_languages", "en")
+    driver = webdriver.Firefox(firefox_profile=profile)
     driver.get(url)
 
     driver.switch_to.default_content()
     driver.switch_to.frame(driver.find_element_by_xpath("//iframe[contains(@src,'enquete')]"))
+
+    option = driver.find_element_by_xpath("//input[contains(@value,'66')]")
+    option.click()
+
     driver.switch_to.frame(driver.find_element_by_xpath("//iframe[contains(@title,'widget')]"))
 
     wait_between(0.2, 0.5)
@@ -35,47 +73,62 @@ while True:
     checkbox = driver.find_element_by_xpath("//*[@id='recaptcha-anchor']")
     checkbox.click()
 
-    wait_between(1.0, 1.5)
+    wait_between(1.0, 2.0)
 
-    if check_exists_by_xpath('//span[@aria-checked="true"]'):
+    if check_if_is_solved(driver):
         print('\n\r reCaptcha is solved!')
     else:
+
         driver.switch_to.default_content()
         driver.switch_to.frame(driver.find_element_by_xpath("//iframe[contains(@src,'enquete')]"))
         driver.switch_to.frame(driver.find_element_by_xpath("//iframe[contains(@title,'challenge')]"))
 
-        text_tag = driver.find_element_by_xpath("//div[contains(@class,'rc-imageselect-desc-no-canonical')]")
-        sentence_tag = text_tag.find_element_by_tag_name("strong")
-        sentence_text = sentence_tag.text
-        sentence = sentence_text.split()
+        if check_exists_by_name(driver, "rc-imageselect-desc-no-canonical"):
 
-        image_tag = driver.find_element_by_xpath("//img[contains(@class,'rc-image')]")
-        image_url = image_tag.get_attribute('src')
+            text_tag = driver.find_element_by_class_name("rc-imageselect-desc-no-canonical")
+            sentence_tag = text_tag.find_element_by_tag_name("strong")
+            sentence_text = sentence_tag.text
+            sentence = sentence_text.split()
 
-        image_aux = ImageAux(image_url)
-        image_aux.generate_images()
+            image_tag = driver.find_element_by_xpath("//img[contains(@class,'rc-image')]")
+            image_url = image_tag.get_attribute('src')
 
-        api = ClarifaiApi('TXB6MB-evkMHppAyFrgw_qas3-_YKPGvels7bTP1', 'F32nfZQ3QEKnPi6vdKUj8k_bViz29L6thxNuv9P2')
+            image_aux = ImageHelper(image_url)
+            image_aux.generate_images()
 
-        tiles = driver.find_element_by_id("rc-imageselect-target")
-        table = tiles.find_element_by_tag_name("table")
-        tds = table.find_elements_by_tag_name("td")
+            api = ClarifaiApi(app_id=clarifai_client_settings['id'],
+                              app_secret=clarifai_client_settings['secret'],
+                              language=clarifai_client_language)
 
-        for idx, td in enumerate(tds):
-            response = api.tag_images(image_aux.get_image(idx+1))
-            results = response['results'][0]['result']['tag']['classes']
-            for word in sentence:
-                if word in results:
-                    td.find_element_by_class_name("rc-image-tile-target").click()
-                    break
+            tiles = driver.find_element_by_id("rc-imageselect-target")
+            table = tiles.find_element_by_tag_name("table")
+            tds = table.find_elements_by_tag_name("td")
 
-        driver.find_element_by_id("recaptcha-verify-button").click()
+            if len(tds) == 9:  # prevent error when recaptcha put more than 9 pics
+                for idx, td in enumerate(tds):
+                    response = api.tag_images(image_aux.get_image(idx+1))
+                    results = response['results'][0]['result']['tag']['classes']
+
+                    plurals = []
+                    for result in results:
+                        plurals.append(p.plural(result))
+                    results.extend(plurals)
+
+                    for word in sentence:
+                        if word in results:
+                            td.find_element_by_class_name("rc-image-tile-target").click()
+                            break
+
+                driver.find_element_by_id("recaptcha-verify-button").click()
 
         wait_between(1.0, 1.5)
 
-        if check_exists_by_xpath('//span[@aria-checked="true"]'):
+        if check_if_is_solved(driver):
             print('\n\r reCaptcha is solved! :) ')
+            vote(driver)
         else:
             print('\n\r Maybe in next time :/ ')
+
+        wait_between(1.0, 1.5)
 
         driver.close()
